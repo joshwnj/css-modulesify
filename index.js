@@ -107,9 +107,7 @@ module.exports = function (browserify, options) {
     });
   }
 
-  browserify.transform(transform, {
-    global: true
-  });
+  browserify.transform(transform);
 
   // wrap the `bundle` function
   var bundle = browserify.bundle;
