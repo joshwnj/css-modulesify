@@ -4,7 +4,7 @@ if (!global.Promise) { global.Promise = require('promise-polyfill') }
 var fs = require('fs');
 var path = require('path');
 var through = require('through');
-var Core = require('css-modules-loader-core');
+var extractor = require('./extractor');
 var FileSystemLoader = require('css-modules-loader-core/lib/file-system-loader');
 var assign = require('object-assign');
 var stringHash = require('string-hash');
@@ -14,7 +14,8 @@ var ReadableStream = require('stream').Readable;
   Custom `generateScopedName` function for `postcss-modules-scope`.
   Short names consisting of source hash and line number.
 */
-function generateShortName (name, filename, css) {
+function generateShortName (name, filename, css, context) {
+  filename = path.relative(context, filename);
   // first occurrence of the name
   // TOOD: better match with regex
   var i = css.indexOf('.' + name);
@@ -28,7 +29,8 @@ function generateShortName (name, filename, css) {
   Custom `generateScopedName` function for `postcss-modules-scope`.
   Appends a hash of the css source.
 */
-function generateLongName (name, filename) {
+function generateLongName (name, filename, css, context) {
+  filename = path.relative(context, filename);
   var sanitisedPath = filename.replace(/\.[^\.\/\\]+$/, '')
       .replace(/[\W_]+/g, '_')
       .replace(/^_|_$/g, '');
@@ -93,59 +95,50 @@ var sourceByFile = {};
 
 module.exports = function (browserify, options) {
   options = options || {};
-
-  // if no root directory is specified, assume the cwd
-  var rootDir = options.rootDir || options.d;
-  if (rootDir) { rootDir = path.resolve(rootDir); }
-  if (!rootDir) { rootDir = process.cwd(); }
+  options.rootDir = options.rootDir || options.d || undefined;
+  options.append = options.postcssAfter || options.after || [];
+  options.use = options.use || options.u || undefined;
 
   var cssOutFilename = options.output || options.o;
   var jsonOutFilename = options.json || options.jsonOutput;
 
-  // PostCSS plugins passed to FileSystemLoader
-  var plugins = options.use || options.u;
-  if (!plugins) {
-    plugins = getDefaultPlugins(options);
-  }
-  else {
-    if (typeof plugins === 'string') {
-      plugins = [plugins];
-    }
-  }
-
-  var postcssAfter = options.postcssAfter || options.after || [];
-  plugins = plugins.concat(postcssAfter);
-
-  // load plugins by name (if a string is used)
-  plugins = plugins.map(function requirePlugin (name) {
-    // assume functions are already required plugins
-    if (typeof name === 'function') {
-      return name;
-    }
-
-    var plugin = require(require.resolve(name));
-
-    // custom scoped name generation
-    if (name === 'postcss-modules-scope') {
-      options[name] = options[name] || {};
-      if (!options[name].generateScopedName) {
-        options[name].generateScopedName = generateLongName;
-      }
-    }
-
-    if (name in options) {
-      plugin = plugin(options[name]);
-    }
-    else {
-      plugin = plugin.postcss || plugin();
-    }
-
-    return plugin;
-  });
-
   // the compiled CSS stream needs to be avalible to the transform,
   // but re-created on each bundle call.
   var compiledCssStream;
+  var instance = extractor(options, fetch);
+
+  function fetch(_to, from) {
+    var to = _to.replace(/^["']|["']$/g, '');
+
+    return new Promise((resolve, reject) => {
+      try {
+        var filename = /\w/i.test(to[0])
+          ? require.resolve(to)
+          : path.resolve(path.dirname(from), to);
+      } catch (e) {
+        return void reject(e);
+      }
+
+      fs.readFile(filename, 'utf8', (err, css) => {
+        if (err) {
+          return void reject(err);
+        }
+
+        instance.process(css, {from: filename})
+          .then(function (result) {
+            var css = result.css;
+            var tokens = result.root.tokens;
+
+            assign(tokensByFile, tokens);
+            sourceByFile[filename] = css;
+            compiledCssStream.push(css);
+
+            resolve(tokens);
+          })
+          .catch(reject);
+      });
+    });
+  }
 
   function transform (filename) {
     // only handle .css files
@@ -156,25 +149,19 @@ module.exports = function (browserify, options) {
     // collect visited filenames
     filenames.push(filename);
 
-    var loader = new FileSystemLoader(rootDir, plugins);
     return through(function noop () {}, function end () {
       var self = this;
 
-      loader.fetch(path.relative(rootDir, filename), '/').then(function (tokens) {
-        var output = 'module.exports = ' + JSON.stringify(tokens);
+      fetch(filename, filename)
+        .then(function (tokens) {
+          var output = 'module.exports = ' + JSON.stringify(tokens);
 
-        assign(tokensByFile, loader.tokensByFile);
-
-        // store this file's source to be written out to disk later
-        sourceByFile[filename] = loader.finalSource;
-
-        compiledCssStream.push(loader.finalSource);
-
-        self.queue(output);
-        self.queue(null);
-      }, function (err) {
-        self.emit('error', err);
-      });
+          self.queue(output);
+          self.queue(null);
+        })
+        .catch(function (err) {
+          self.emit('error', err);
+        });
     });
   }
 

@@ -5,7 +5,14 @@
   "main": "index.js",
   "dependencies": {
     "css-modules-loader-core": "^1.0.0",
+    "generic-names": "^1.0.1",
     "object-assign": "^3.0.0",
+    "postcss": "^5.0.10",
+    "postcss-modules-extract-imports": "^1.0.0",
+    "postcss-modules-local-by-default": "^1.0.0",
+    "postcss-modules-parser": "^1.0.1",
+    "postcss-modules-scope": "^1.0.0",
+    "postcss-modules-values": "^1.1.1",
     "promise-polyfill": "^2.1.0",
     "string-hash": "^1.1.0",
     "through": "^2.3.7"
