@@ -32,7 +32,7 @@ module.exports = function extractor(options, fetch) {
   var scopedName;
   if (generateScopedName) {
     scopedName = typeof generateScopedName !== 'function'
-      ? genericNames(generateScopedName || '[name]__[local]___[hash:base64:5]', {context})
+      ? genericNames(generateScopedName || '[name]__[local]___[hash:base64:5]', {context: context})
       : function (local, filename, css) {
         // had to wrap that function cause i didn't expected,
         // that generateShortName() and generateLongName() functions
@@ -55,16 +55,16 @@ module.exports = function extractor(options, fetch) {
       .concat([
         Values,
         mode
-          ? new LocalByDefault({mode})
+          ? new LocalByDefault({mode: mode})
           : LocalByDefault,
         createImportedName
-          ? new ExtractImports({createImportedName})
+          ? new ExtractImports({createImportedName: createImportedName})
           : ExtractImports,
         new Scope({generateScopedName: scopedName}),
       ], append || []);
   }
 
-  plugins = plugins.concat(new Parser({fetch}));
+  plugins = plugins.concat(new Parser({fetch: fetch}));
 
   return postcss(plugins);
 }
