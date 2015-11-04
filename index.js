@@ -110,7 +110,7 @@ module.exports = function (browserify, options) {
   function fetch(_to, from) {
     var to = _to.replace(/^["']|["']$/g, '');
 
-    return new Promise((resolve, reject) => {
+    return new Promise(function (resolve, reject) {
       try {
         var filename = /\w/i.test(to[0])
           ? require.resolve(to)
@@ -119,7 +119,7 @@ module.exports = function (browserify, options) {
         return void reject(e);
       }
 
-      fs.readFile(filename, 'utf8', (err, css) => {
+      fs.readFile(filename, 'utf8', function (err, css) {
         if (err) {
           return void reject(err);
         }
