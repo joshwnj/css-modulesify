@@ -6,7 +6,6 @@ var path = require('path');
 var through = require('through');
 var extractor = require('./extractor');
 var FileSystemLoader = require('css-modules-loader-core/lib/file-system-loader');
-var assign = require('object-assign');
 var stringHash = require('string-hash');
 var ReadableStream = require('stream').Readable;
 
@@ -124,12 +123,18 @@ module.exports = function (browserify, options) {
           return void reject(err);
         }
 
+        var tokens = tokensByFile[filename];
+        if (tokens) {
+          compiledCssStream.push(sourceByFile[filename]);
+          return void resolve(tokens);
+        }
+
         instance.process(css, {from: filename})
           .then(function (result) {
             var css = result.css;
             var tokens = result.root.tokens;
 
-            assign(tokensByFile, tokens);
+            tokensByFile[filename] = tokens;
             sourceByFile[filename] = css;
             compiledCssStream.push(css);
 
