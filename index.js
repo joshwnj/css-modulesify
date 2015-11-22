@@ -183,9 +183,7 @@ module.exports = function (browserify, options) {
     });
   }
 
-  browserify.transform(transform, {
-    global: true
-  });
+  browserify.transform(transform);
 
   browserify.on('bundle', function (bundle) {
     // on each bundle, create a new stream b/c the old one might have ended
