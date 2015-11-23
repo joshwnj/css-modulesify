@@ -4,7 +4,6 @@
   "description": "A browserify transform to load CSS Modules",
   "main": "index.js",
   "dependencies": {
-    "css-modules-loader-core": "^1.0.0",
     "object-assign": "^3.0.0",
     "promise-polyfill": "^2.1.0",
     "string-hash": "^1.1.0",
@@ -19,7 +18,9 @@
   },
   "scripts": {
     "test": "tape tests/*.js",
-    "lint": "eslint index.js tests/"
+    "lint": "eslint index.js tests/",
+    "preinstall": "rm -rf node_modules/css-modules-loader-core",
+    "postinstall": "git clone https://github.com/sullenor/css-modules-loader-core.git node_modules/css-modules-loader-core && cd node_modules/css-modules-loader-core && npm i && npm run build"
   },
   "author": "joshwnj",
   "license": "MIT",

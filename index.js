@@ -28,8 +28,8 @@ function generateShortName (name, filename, css) {
   Custom `generateScopedName` function for `postcss-modules-scope`.
   Appends a hash of the css source.
 */
-function generateLongName (name, filename) {
-  var sanitisedPath = filename.replace(/\.[^\.\/\\]+$/, '')
+function generateLongName (name, filename, css, context) {
+  var sanitisedPath = path.relative(context, filename).replace(/\.[^\.\/\\]+$/, '')
       .replace(/[\W_]+/g, '_')
       .replace(/^_|_$/g, '');
 
@@ -102,47 +102,6 @@ module.exports = function (browserify, options) {
   var cssOutFilename = options.output || options.o;
   var jsonOutFilename = options.json || options.jsonOutput;
 
-  // PostCSS plugins passed to FileSystemLoader
-  var plugins = options.use || options.u;
-  if (!plugins) {
-    plugins = getDefaultPlugins(options);
-  }
-  else {
-    if (typeof plugins === 'string') {
-      plugins = [plugins];
-    }
-  }
-
-  var postcssAfter = options.postcssAfter || options.after || [];
-  plugins = plugins.concat(postcssAfter);
-
-  // load plugins by name (if a string is used)
-  plugins = plugins.map(function requirePlugin (name) {
-    // assume functions are already required plugins
-    if (typeof name === 'function') {
-      return name;
-    }
-
-    var plugin = require(require.resolve(name));
-
-    // custom scoped name generation
-    if (name === 'postcss-modules-scope') {
-      options[name] = options[name] || {};
-      if (!options[name].generateScopedName) {
-        options[name].generateScopedName = generateLongName;
-      }
-    }
-
-    if (name in options) {
-      plugin = plugin(options[name]);
-    }
-    else {
-      plugin = plugin.postcss || plugin();
-    }
-
-    return plugin;
-  });
-
   // the compiled CSS stream needs to be avalible to the transform,
   // but re-created on each bundle call.
   var compiledCssStream;
@@ -156,11 +115,11 @@ module.exports = function (browserify, options) {
     // collect visited filenames
     filenames.push(filename);
 
-    var loader = new FileSystemLoader(rootDir, plugins);
+    var loader = new FileSystemLoader(options);
     return through(function noop () {}, function end () {
       var self = this;
 
-      loader.fetch(path.relative(rootDir, filename), '/').then(function (tokens) {
+      loader.fetch(filename, filename, null).then(function (tokens) {
         var output = 'module.exports = ' + JSON.stringify(tokens);
 
         assign(tokensByFile, loader.tokensByFile);
