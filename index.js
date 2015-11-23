@@ -102,6 +102,8 @@ module.exports = function (browserify, options) {
   var cssOutFilename = options.output || options.o;
   var jsonOutFilename = options.json || options.jsonOutput;
 
+  var processorOptions = {to: options.to};
+
   // the compiled CSS stream needs to be avalible to the transform,
   // but re-created on each bundle call.
   var compiledCssStream;
@@ -115,7 +117,7 @@ module.exports = function (browserify, options) {
     // collect visited filenames
     filenames.push(filename);
 
-    var loader = new FileSystemLoader(options);
+    var loader = new FileSystemLoader(options, processorOptions);
     return through(function noop () {}, function end () {
       var self = this;
 
