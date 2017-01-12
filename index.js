@@ -191,11 +191,6 @@ module.exports = function (browserify, options) {
       assign(tokensByFile, loader.tokensByFile);
 
       self.push(output.join('\n'));
-      if (inlineStyle) {
-        var func_start = ";(function() { var head = document.getElementsByTagName('head')[0]; var style = document.createElement('style'); style.type = 'text/css';",
-            func_end = "if (style.styleSheet){ style.styleSheet.cssText = css; } else { style.appendChild(document.createTextNode(css)); } head.appendChild(style);}())";
-        self.push(func_start + "var css = " + JSON.stringify(loadersByFile[cssOutFilename].finalSource) + ";" + func_end);
-      }
       return callback();
     }).catch(function (err) {
       self.push('console.error("' + err + '");');
@@ -232,6 +227,13 @@ module.exports = function (browserify, options) {
       // write the css file
       if (cssOutFilename) {
         writes.push(writeFile(cssOutFilename, css));
+      }
+
+      // write the css into page style tag
+      if (inlineStyle) {
+        var func_start = ";(function() { var head = document.getElementsByTagName('head')[0]; var style = document.createElement('style'); style.type = 'text/css';",
+            func_end = "if (style.styleSheet){ style.styleSheet.cssText = css; } else { style.appendChild(document.createTextNode(css)); } head.appendChild(style);}())";
+        self.push(func_start + "var css = " + JSON.stringify(loadersByFile[cssOutFilename].finalSource) + ";" + func_end);
       }
 
       // write the classname manifest
