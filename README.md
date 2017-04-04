@@ -72,6 +72,7 @@ b.on('css stream', function (css) {
 - `generateScopedName`: (API only) a function to override the default behaviour of creating locally scoped classnames.
 - `global`: optional boolean. Set to `true` if you want `css-modulesify` to apply to `node_modules` as well as local files. You can read more about it in the [browserify docs](https://github.com/substack/node-browserify/#btransformtr-opts).
 - `filePattern`: optional regular expression string to specify css file names. (default: `\.css$`)
+- `inline`: auto create style tag and insert it into head tag.(default: `false`, need output to be `false`)
 
 ### Events
 - `b.on('css stream', callback)` The callback is called with a readable stream containing the compiled CSS. You can write this to a file.
