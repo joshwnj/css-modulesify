@@ -146,22 +146,12 @@ module.exports = function (browserify, options) {
   });
 
   // create a loader for this entry file
-  if (!loadersByFile[cssOutFilename]) {
-    loadersByFile[cssOutFilename] = new FileSystemLoader(rootDir, plugins);
+  var loader = loadersByFile[cssOutFilename];
+  if (!loader) {
+    loader = loadersByFile[cssOutFilename] = new FileSystemLoader(rootDir, plugins);
   }
 
-  // TODO: clean this up so there's less scope crossing
-  Cmify.prototype._flush = function (callback) {
-    var self = this;
-    var filename = this._filename;
-
-    // only handle .css files
-    if (!this.isCssFile(filename)) { return callback(); }
-
-    // grab the correct loader
-    var loader = loadersByFile[this._cssOutFilename];
-
-    // convert css to js before pushing
+  function createCssModuleSource (filename, cb) {
     // reset the `tokensByFile` cache
     var relFilename = path.relative(rootDir, filename);
     tokensByFile[filename] = loader.tokensByFile[filename] = null;
@@ -189,11 +179,28 @@ module.exports = function (browserify, options) {
 
       assign(tokensByFile, loader.tokensByFile);
 
-      self.push(output.join('\n'));
-      return callback();
+      return cb(null, output.join('\n'));
     }).catch(function (err) {
-      self.push('console.error("' + err + '");');
-      self.emit('error', err);
+      return cb(err);
+    });
+  }
+
+  // TODO: clean this up so there's less scope crossing
+  Cmify.prototype._flush = function (callback) {
+    var self = this;
+    var filename = this._filename;
+
+    // only handle .css files
+    if (!this.isCssFile(filename)) { return callback(); }
+
+    createCssModuleSource(filename, function (err, source) {
+      if (err) {
+        self.push('console.error("' + err + '");');
+        self.emit('error', err);
+        return callback();
+      }
+
+      self.push(source);
       return callback();
     });
   };
@@ -202,7 +209,48 @@ module.exports = function (browserify, options) {
 
   // ----
 
+  function invalidateFile (filename) {
+    Object.keys(loadersByFile).forEach(function (loaderKey) {
+      var loader = loadersByFile[loaderKey];
+
+      // clear the token cache for the changed file
+      tokensByFile[filename] = loader.tokensByFile[filename] = null;
+
+      // also clear the cache for any modules depending on this one
+      try {
+        var deps = loader.deps.dependantsOf(filename);
+        deps.forEach(function (dep) {
+          tokensByFile[dep] = loader.tokensByFile[dep] = null;
+        });
+      }
+      catch (err) {}
+    });
+  }
+
   function addHooks () {
+    browserify.pipeline.get('deps').push(through.obj(function write (row, enc, next) {
+      // css modules need to be regenerated at this point
+      // (so that imported @value updates are carried through hmr)
+      var self = this;
+      if (!/\.css$/.test(row.id)) {
+        return next(null, row)
+      }
+
+      invalidateFile(row.id)
+      return createCssModuleSource(row.id, function (err, source) {
+        if (err) {
+          row.source = 'console.error("' + err + '");';
+          self.emit('error', err);
+          return next(null, row)
+        }
+
+        row.source = source
+        next(null, row)
+      })
+    }, function end (done) {
+      done();
+    }));
+
     browserify.pipeline.get('pack').push(through(function write (row, enc, next) {
       next(null, row);
     }, function end (cb) {
@@ -240,6 +288,11 @@ module.exports = function (browserify, options) {
 
   browserify.on('reset', addHooks);
   addHooks();
+
+  browserify.on('update', function (files) {
+    // invalidate cache of any changed css modules
+    files.forEach(invalidateFile);
+  })
 
   return browserify;
 };
