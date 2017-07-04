@@ -7,6 +7,7 @@
     "css-modules-loader-core": "^1.1.0",
     "dependency-graph": "^0.4.1",
     "object-assign": "^3.0.0",
+    "path-is-absolute": "^1.0.1",
     "promise-polyfill": "^2.1.0",
     "resolve": "^1.1.7",
     "string-hash": "^1.1.0",

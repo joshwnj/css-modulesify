@@ -2,6 +2,7 @@
 
 var DepGraph = require('dependency-graph').DepGraph;
 var nodeResolve = require('resolve');
+var pathIsAbsolute = require('path-is-absolute')
 
 Object.defineProperty(exports, '__esModule', {
   value: true
@@ -68,7 +69,7 @@ var FileSystemLoader = (function () {
             fileRelativePath = _path2['default'].resolve(rootRelativeDir, newPath);
 
         // if the path is not relative or absolute, try to resolve it in node_modules
-        if (newPath[0] !== '.' && newPath[0] !== '/') {
+        if (newPath[0] !== '.' && !pathIsAbsolute(newPath)) {
           var paths;
           if (process.env.NODE_PATH) {
             paths = process.env.NODE_PATH.split(_path2['default'].delimiter);
