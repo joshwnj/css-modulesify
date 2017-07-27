@@ -125,7 +125,7 @@ var FileSystemLoader = (function () {
       var sources = this.sources;
       var written = {};
 
-      return this.deps.overallOrder().map(function (filename) {
+      return this.deps.overallOrder().slice().sort().map(function (filename) {
         if (written[filename] === true) {
           return null;
         }
